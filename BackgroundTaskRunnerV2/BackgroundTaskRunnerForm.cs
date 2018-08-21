@@ -47,13 +47,13 @@ namespace BackgroundTaskRunnerV2
         private void MainForm_FormClosing(object sender, FormClosingEventArgs e)
         {
             LogEvent("Closing...");
+            processManager.RemoveCurrentProcess();
+            systemEventsManager.DeregisterEventHandlers();
             processManager.OnProcessStateChange -= HandleProcessStateChange;
             processManager.OnProcessStartError -= HandleProcessStartError;
             processManager.OnProcessStopError -= HandleProcessStopError;
             systemEventsManager.Pause -= HandlePauseEvent;
             systemEventsManager.Resume -= HandleResumeEvent;
-            systemEventsManager.DeregisterEventHandlers();
-            processManager.RemoveCurrentProcess();
         }
 
         private void StartWithCurrentPath()

@@ -186,10 +186,10 @@
             this.linkSource.AutoSize = true;
             this.linkSource.Location = new System.Drawing.Point(86, 510);
             this.linkSource.Name = "linkSource";
-            this.linkSource.Size = new System.Drawing.Size(256, 13);
+            this.linkSource.Size = new System.Drawing.Size(269, 13);
             this.linkSource.TabIndex = 13;
             this.linkSource.TabStop = true;
-            this.linkSource.Text = "https://github.com/jospete/BackgroundTaskRunner";
+            this.linkSource.Text = "https://github.com/jospete/BackgroundTaskRunnerV2";
             this.linkSource.LinkClicked += new System.Windows.Forms.LinkLabelLinkClickedEventHandler(this.LinkSource_LinkClicked);
             // 
             // BackgroundTaskRunnerForm
