@@ -69,12 +69,19 @@ namespace BackgroundTaskRunnerV2
 
         private void LoadConditionCheckboxes()
         {
-            clbConditions.Items.Clear();
+            
             string[] states = Enum.GetValues(typeof(LockState))
                 .Cast<LockState>()
                 .Select(state => state.ToString())
                 .ToArray<string>();
+
+            clbConditions.Items.Clear();
             clbConditions.Items.AddRange(states);
+
+            for (int i = 0; i < states.Length; i++)
+            {
+                clbConditions.SetItemChecked(i, true);
+            }
         }
 
         // ================================================================
@@ -131,6 +138,41 @@ namespace BackgroundTaskRunnerV2
             string[] selected = clbConditions.CheckedItems.Cast<string>().ToArray();
             LogEvent("Checked states changed: " + selected.Aggregate((a, b) => a + ", " + b));
         }
+        
+        private void HandleProcessStartError(ProcessStartError error, Exception exception)
+        {
+            LogErrorEventAsync("Process Start - " + error.ToString(), exception);
+        }
+
+        private void HandleProcessStopError(ProcessStopError error, Exception exception)
+        {
+            LogErrorEventAsync("Process Stop - " + error.ToString(), exception);
+        }
+
+        private void HandlePauseEvent(LockState state)
+        {
+            LogEvent("Pause from lock state - " + state.ToString());
+            if(clbConditions.CheckedItems.Contains(state.ToString()))
+            {
+                LogEventAsync("Pause event starting process...");
+                StartWithCurrentPath();
+            }
+        }
+
+        private void HandleResumeEvent(LockState state)
+        {
+            LogEventAsync("Resume from lock state - " + state.ToString());
+            this.processManager.RemoveCurrentProcess();
+        }
+
+        private void HandleProcessStateChange(ProcessStateChange state)
+        {
+            LogEventAsync("Process State - " + state.ToString());
+            if(state == ProcessStateChange.End)
+            {
+                this.Invoke(new Action(this.processManager.RemoveCurrentProcess));
+            }
+        }
 
         private void BtnBrowse_Click(object sender, EventArgs e)
         {
@@ -145,41 +187,6 @@ namespace BackgroundTaskRunnerV2
             if (dialog.ShowDialog() == DialogResult.OK)
             {
                 tbFilePath.Text = dialog.FileName;
-            }
-        }
-
-        private void HandleProcessStartError(ProcessStartError error, Exception exception)
-        {
-            LogErrorEventAsync("Process Start - " + error.ToString(), exception);
-        }
-
-        private void HandleProcessStopError(ProcessStopError error, Exception exception)
-        {
-            LogErrorEventAsync("Process Stop - " + error.ToString(), exception);
-        }
-
-        private void HandlePauseEvent(LockState state)
-        {
-            LogEvent(" pause from lock state - " + state.ToString());
-            if(clbConditions.CheckedItems.Contains(state.ToString()))
-            {
-                LogEventAsync("Pause event starting process...");
-                StartWithCurrentPath();
-            }
-        }
-
-        private void HandleResumeEvent(LockState state)
-        {
-            LogEventAsync(" resume from lock state - " + state.ToString());
-            this.processManager.RemoveCurrentProcess();
-        }
-
-        private void HandleProcessStateChange(ProcessStateChange state)
-        {
-            LogEventAsync("Process State - " + state.ToString());
-            if(state == ProcessStateChange.End)
-            {
-                this.Invoke(new Action(this.processManager.RemoveCurrentProcess));
             }
         }
     }
