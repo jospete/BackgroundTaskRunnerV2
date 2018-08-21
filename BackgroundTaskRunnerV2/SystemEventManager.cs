@@ -11,15 +11,17 @@ namespace BackgroundTaskRunnerV2
     public class SystemEventManager
     {
 
+        // Used to identify screensaver events
+        const int WM_SYSCOMMAND = 0x0112;
+        const int SC_SCREENSAVE = 0xF140;
+
+        // Core pause/resume states emitted by this manager
         public enum LockState
         {
             Sleep,
             WindowsLock,
             ScreenSaver
         }
-
-        const int WM_SYSCOMMAND = 0x0112;
-        const int SC_SCREENSAVE = 0xF140;
 
         public event Action<LockState> Pause;
         public event Action<LockState> Resume;
@@ -35,12 +37,18 @@ namespace BackgroundTaskRunnerV2
             this.powerModeChangedHandler = new PowerModeChangedEventHandler(SystemEvents_PowerModeChanged);
         }
 
+        /**
+         * Add hooks to static system classes
+         */
         public void RegisterEventHandlers()
         {
             SystemEvents.SessionSwitch += this.sessionSwitchHandler;
             SystemEvents.PowerModeChanged += this.powerModeChangedHandler;
         }
 
+        /**
+         * Remove listener hooks from static system classes
+         */
         public void DeregisterEventHandlers()
         {
             Application.Idle -= this.screenSaverIdleHandler;
@@ -52,6 +60,7 @@ namespace BackgroundTaskRunnerV2
         // Core Event Handlers
         // ===============================================================
 
+        // Emits pause event when screensaver application starts, and registers the screensaver idle listener
         public void HandleWndProc(ref Message m)
         {
             if(m.Msg == WM_SYSCOMMAND && m.WParam.ToInt32() == SC_SCREENSAVE)
@@ -61,12 +70,14 @@ namespace BackgroundTaskRunnerV2
             }
         }
 
+        // Emits resume event when the screensaver application becomes idle
         private void ApplicationIdle_ScreenSaver(object sender, EventArgs e)
         {
             Application.Idle -= this.screenSaverIdleHandler;
             this.Resume(LockState.ScreenSaver);
         }
 
+        // Emits pause/resume events when the user locks/unlocks their computer with Cmd+L
         private void SystemEvents_SessionSwitch(object sender, SessionSwitchEventArgs e)
         {
             switch (e.Reason)
@@ -77,6 +88,7 @@ namespace BackgroundTaskRunnerV2
             }
         }
 
+        // Emits pause/resume events when the computer sleeps
         private void SystemEvents_PowerModeChanged(object sender, PowerModeChangedEventArgs e)
         {
             switch (e.Mode)

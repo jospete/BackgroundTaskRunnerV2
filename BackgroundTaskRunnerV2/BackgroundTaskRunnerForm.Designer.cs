@@ -123,12 +123,11 @@
             this.cbStopOnResume.TabIndex = 7;
             this.cbStopOnResume.Text = "Auto-Stop On Resume";
             this.cbStopOnResume.UseVisualStyleBackColor = true;
+            this.cbStopOnResume.CheckedChanged += new System.EventHandler(this.CbStopOnResume_CheckedChanged);
             // 
             // cbOpenMinimized
             // 
             this.cbOpenMinimized.AutoSize = true;
-            this.cbOpenMinimized.Checked = true;
-            this.cbOpenMinimized.CheckState = System.Windows.Forms.CheckState.Checked;
             this.cbOpenMinimized.Font = new System.Drawing.Font("Microsoft Sans Serif", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.cbOpenMinimized.ForeColor = System.Drawing.SystemColors.ControlDarkDark;
             this.cbOpenMinimized.Location = new System.Drawing.Point(338, 39);
@@ -137,6 +136,7 @@
             this.cbOpenMinimized.TabIndex = 8;
             this.cbOpenMinimized.Text = "Open Runner Minimized";
             this.cbOpenMinimized.UseVisualStyleBackColor = true;
+            this.cbOpenMinimized.CheckedChanged += new System.EventHandler(this.CbOpenMinimized_CheckedChanged);
             // 
             // tbFilePath
             // 
@@ -145,6 +145,7 @@
             this.tbFilePath.Name = "tbFilePath";
             this.tbFilePath.Size = new System.Drawing.Size(244, 70);
             this.tbFilePath.TabIndex = 9;
+            this.tbFilePath.TextChanged += new System.EventHandler(this.TbFilePath_TextChanged);
             // 
             // btnBrowse
             // 
@@ -196,6 +197,7 @@
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
+            this.AutoScroll = true;
             this.ClientSize = new System.Drawing.Size(505, 532);
             this.Controls.Add(this.linkSource);
             this.Controls.Add(this.lblSource);
@@ -210,6 +212,8 @@
             this.Controls.Add(this.lblConditions);
             this.Controls.Add(this.lblEventLogs);
             this.Controls.Add(this.lbEventLogs);
+            this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedSingle;
+            this.MaximizeBox = false;
             this.Name = "BackgroundTaskRunnerForm";
             this.Text = "Background Task Runner V2";
             this.FormClosing += new System.Windows.Forms.FormClosingEventHandler(this.MainForm_FormClosing);

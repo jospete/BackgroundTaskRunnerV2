@@ -13,12 +13,14 @@ namespace BackgroundTaskRunnerV2
      */
     public class ProcessManager
     {
+        // States emitted in OnProcessStateChange
         public enum ProcessStateChange
         {
             Start,
             End
         }
 
+        // States emitted in OnProcessStartError
         public enum ProcessStartError
         {
             Create,
@@ -27,76 +29,102 @@ namespace BackgroundTaskRunnerV2
             Active
         }
 
+        // States emitted in OnProcessStopError
         public enum ProcessStopError
         {
             Inactive,
-            Exited,
             Destroy
         }
 
+        // Core events which emit real-time info about the current process
         public event Action<ProcessStateChange> OnProcessStateChange;
         public event Action<ProcessStopError, Exception> OnProcessStopError;
         public event Action<ProcessStartError, Exception> OnProcessStartError;
-
-        public string[] AcceptedFileExtensions;
-
+        
         private Process process;
         private ProcessStartInfo processStartInfo;
+        private string[] acceptedExtensions;
 
         public ProcessManager(params string[] extensions)
         {
-            this.AcceptedFileExtensions = extensions;
+            this.acceptedExtensions = extensions;
         }
-        
+
+        /**
+         * Returns true if a process has been creatd
+         */
         public bool IsProcessAvailable
         {
             get { return process != null;  }
         }
 
+        /**
+         * Returns true if the given path ends with an extension accepted by this manager
+         */
         public bool AcceptsPathExtension(string path)
         {
-            return path != null && AcceptedFileExtensions.Contains(path.Substring(path.LastIndexOf(".")));
+            if(path == null || path == string.Empty)
+            {
+                return false;
+            }
+
+            int extensionIndex = path.LastIndexOf(".");
+
+            if(extensionIndex < 0 || extensionIndex >= path.Length)
+            {
+                return false;
+            }
+
+            return this.acceptedExtensions.Contains(path.Substring(extensionIndex));
         }
 
+        /**
+         * Start and maintain a Process instance for the executable at the given path.
+         * Any errors encountered during the start routine  will be emitted in OnProcessStartError.
+         */
         public void Start(string path)
         {
 
+            // Don't start a process if we already have one active
             if (this.IsProcessAvailable)
             {
                 this.OnProcessStartError(ProcessStartError.Active, null);
                 return;
             }
 
+            // Don't start the process if the given path is not an accepted file type
             if (!this.AcceptsPathExtension(path))
             {
                 this.OnProcessStartError(ProcessStartError.Extension, null);
                 return;
             }
 
+            // Don't start the process if the file doesn't exist
             if(!File.Exists(path))
             {
                 this.OnProcessStartError(ProcessStartError.FilePath, null);
                 return;
             }
 
+            // Attempt to create the process
             this.CreateProcess(path);
         }
 
+        /**
+         * Destroy the current process if one exists.
+         * Any errors encountered during the stop routine will be emitted in OnProcessStopError.
+         */
         public void RemoveCurrentProcess()
         {
 
+            // Don't do anything if no process is active
             if (!this.IsProcessAvailable)
             {
                 this.OnProcessStopError(ProcessStopError.Inactive, null);
                 return;
             }
 
-            if (process.HasExited)
-            {
-                this.OnProcessStopError(ProcessStopError.Exited, new Exception("Exit Code " + process.ExitCode));
-                return;
-            }
-
+            // Attempt to kill and remove the current process
             this.DestroyProcess();
         }
 
@@ -104,6 +132,7 @@ namespace BackgroundTaskRunnerV2
         // Internal Event Handlers
         // ==================================================================
 
+        // Callback for the Process.Exited event
         private void OnProcessEnd(object sender, EventArgs e)
         {
             if (this.IsProcessAvailable)
@@ -112,15 +141,21 @@ namespace BackgroundTaskRunnerV2
             }
         }
 
+        // Create and maintain a process from the executable at the given path
         private void CreateProcess(string path)
         {
             try
             {
+                // Set the working directory to the file's directory to keep its references in-tact
                 processStartInfo = new ProcessStartInfo(path);
                 processStartInfo.WorkingDirectory = path.Substring(0, path.LastIndexOf("\\"));
+
+                // Start the process and enable events on it
                 process = Process.Start(processStartInfo);
                 process.EnableRaisingEvents = true;
                 process.Exited += OnProcessEnd;
+
+                // Emit process start state change
                 this.OnProcessStateChange(ProcessStateChange.Start);
             }
             catch (Exception ex)
@@ -129,6 +164,7 @@ namespace BackgroundTaskRunnerV2
             }
         }
 
+        // Destroy the current process and clear the reference
         private void DestroyProcess()
         {
             try
