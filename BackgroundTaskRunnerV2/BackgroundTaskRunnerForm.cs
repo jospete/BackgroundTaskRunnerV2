@@ -21,6 +21,10 @@ namespace BackgroundTaskRunnerV2
             return "[ERROR] " + text + exceptionText;
         }
 
+        // ================================================================
+        // Core Glue Stuff
+        // ================================================================
+
         public BackgroundTaskRunnerForm()
         {
             InitializeComponent();
