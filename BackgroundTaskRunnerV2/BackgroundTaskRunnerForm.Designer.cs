@@ -28,6 +28,7 @@
         /// </summary>
         private void InitializeComponent()
         {
+            System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(BackgroundTaskRunnerForm));
             this.lbEventLogs = new System.Windows.Forms.ListBox();
             this.lblEventLogs = new System.Windows.Forms.Label();
             this.lblConditions = new System.Windows.Forms.Label();
@@ -213,6 +214,7 @@
             this.Controls.Add(this.lblEventLogs);
             this.Controls.Add(this.lbEventLogs);
             this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedSingle;
+            this.Icon = ((System.Drawing.Icon)(resources.GetObject("$this.Icon")));
             this.MaximizeBox = false;
             this.Name = "BackgroundTaskRunnerForm";
             this.Text = "Background Task Runner V2";
