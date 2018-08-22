@@ -1,7 +1,7 @@
 ﻿using System;
-using System.Windows.Forms;
-using System.Diagnostics;
 using System.Linq;
+using System.Diagnostics;
+using System.Windows.Forms;
 
 using LockState = BackgroundTaskRunnerV2.SystemEventManager.LockState;
 using ProcessStateChange = BackgroundTaskRunnerV2.ProcessManager.ProcessStateChange;
@@ -16,8 +16,11 @@ namespace BackgroundTaskRunnerV2
      */
     public partial class BackgroundTaskRunnerForm : Form
     {
-        SystemEventManager systemEventsManager;
-        ProcessManager processManager;
+
+        const string NO_CONDITIONS = "None";
+
+        private ProcessManager processManager;
+        private SystemEventManager systemEventsManager;
 
         // Translates the given arguments into an error message format
         private static string CreateErrorEventText(string text, Exception exception)
@@ -39,21 +42,34 @@ namespace BackgroundTaskRunnerV2
 
         private void MainForm_Load(object sender, EventArgs e)
         {
+
             LogEvent("Start Up");
+
             processManager.OnProcessStateChange += HandleProcessStateChange;
             processManager.OnProcessStartError += HandleProcessStartError;
             processManager.OnProcessStopError += HandleProcessStopError;
             systemEventsManager.Pause += HandlePauseEvent;
             systemEventsManager.Resume += HandleResumeEvent;
+
             systemEventsManager.RegisterEventHandlers();
-            LoadConditionCheckboxes();
+            Properties.Settings.Default.Reload();
+            ApplySettings();
+
+            if (cbOpenMinimized.Checked)
+            {
+                WindowState = FormWindowState.Minimized;
+            }
         }
 
         private void MainForm_FormClosing(object sender, FormClosingEventArgs e)
         {
+
             LogEvent("Closing...");
+
+            Properties.Settings.Default.Save();
             processManager.RemoveCurrentProcess();
             systemEventsManager.DeregisterEventHandlers();
+
             processManager.OnProcessStateChange -= HandleProcessStateChange;
             processManager.OnProcessStartError -= HandleProcessStartError;
             processManager.OnProcessStopError -= HandleProcessStopError;
@@ -61,17 +77,42 @@ namespace BackgroundTaskRunnerV2
             systemEventsManager.Resume -= HandleResumeEvent;
         }
 
+        // Convenience for starting the process with the current path
         private void StartWithCurrentPath()
         {
             this.processManager.Start(tbFilePath.Text);
         }
 
+        // Passthrough for Windows Form events
         protected override void WndProc(ref Message m)
         {
             base.WndProc(ref m);
             systemEventsManager.HandleWndProc(ref m);
         }
+        
+        // Apply all settings from stored preferences
+        private void ApplySettings()
+        {
+            LogEvent("Applying user settings");
+            LoadFilePath();
+            LoadCustomActionCheckboxes();
+            LoadConditionCheckboxes();
+        }
 
+        // Load the file path from the stored preferences
+        private void LoadFilePath()
+        {
+            tbFilePath.Text = Properties.Settings.Default.FilePath;
+        }
+
+        // Load custom checkbox states from stored preferences
+        private void LoadCustomActionCheckboxes()
+        {
+            cbStopOnResume.Checked = Properties.Settings.Default.StopProcessOnResume;
+            cbOpenMinimized.Checked = Properties.Settings.Default.MinimizeOnStart;
+        }
+
+        // Load condition states from stored preferences
         private void LoadConditionCheckboxes()
         {
             
@@ -82,10 +123,11 @@ namespace BackgroundTaskRunnerV2
 
             clbConditions.Items.Clear();
             clbConditions.Items.AddRange(states);
+            string selectedConditions = Properties.Settings.Default.Conditions;
 
             for (int i = 0; i < states.Length; i++)
             {
-                clbConditions.SetItemChecked(i, true);
+                clbConditions.SetItemChecked(i, selectedConditions.Contains(states[i]));
             }
         }
 
@@ -93,26 +135,29 @@ namespace BackgroundTaskRunnerV2
         // Event Logging
         // ================================================================
 
+        // Posts an error event log on the thread queue
         private void LogErrorEventAsync(string text, Exception exception)
         {
             this.LogEventAsync(CreateErrorEventText(text, exception));
         }
         
+        // Posts an event log on the thread queue
         private void LogEventAsync(string text)
         {
             this.Invoke(new Action<string>(this.LogEvent), new object[] { text });
         }
 
+        // Wraps a logged event with an error format
         private void LogErrorEvent(string text, Exception exception)
         {
             this.LogEvent(CreateErrorEventText(text, exception));
         }
 
+        // Core event logging that adds the event to the event logs list box
         private void LogEvent(string text)
         {
 
             string value = DateTime.Now.ToLocalTime() + ":      " + text;
-            Console.WriteLine(value);
             lbEventLogs.Items.Add(value);
 
             int visibleItems = lbEventLogs.ClientSize.Height / lbEventLogs.ItemHeight;
@@ -195,26 +240,29 @@ namespace BackgroundTaskRunnerV2
             Process.Start(linkSource.Text);
         }
 
+        // Save the 'Stop On Resume' checked state on change
         private void CbStopOnResume_CheckedChanged(object sender, EventArgs e)
         {
-            // TODO: implement
+            Properties.Settings.Default.StopProcessOnResume = cbStopOnResume.Checked;
         }
 
+        // Save the 'Minimize On Start' checked state on change
         private void CbOpenMinimized_CheckedChanged(object sender, EventArgs e)
         {
-            // TODO: implement
+            Properties.Settings.Default.MinimizeOnStart = cbOpenMinimized.Checked;
         }
 
+        // Save the target file path on change
         private void TbFilePath_TextChanged(object sender, EventArgs e)
         {
-            // TODO: implement
+            Properties.Settings.Default.FilePath = tbFilePath.Text;
         }
 
         // Handles change detection for accepted lock states
         private void ClbConditions_SelectedIndexChanged(object sender, EventArgs e)
         {
             string[] selected = clbConditions.CheckedItems.Cast<string>().ToArray();
-            string aggregated = "None";
+            string aggregated = NO_CONDITIONS;
 
             if(selected != null && selected.Length > 0)
             {
@@ -222,6 +270,8 @@ namespace BackgroundTaskRunnerV2
             }
             
             LogEvent("Conditions changed - " + aggregated);
+            Properties.Settings.Default.Conditions = aggregated;
+            
         }
 
         // Opens a file browser and saves the selected file path when the dialog is confirmed
