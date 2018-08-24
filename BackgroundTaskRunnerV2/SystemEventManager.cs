@@ -1,6 +1,7 @@
 ﻿using System;
 using Microsoft.Win32;
 using System.Windows.Forms;
+using System.Collections.Generic;
 
 namespace BackgroundTaskRunnerV2
 {
@@ -11,7 +12,7 @@ namespace BackgroundTaskRunnerV2
     public class SystemEventManager
     {
 
-        // Used to identify screensaver events
+        // Used to identify WndProc system events
         private const int WM_SYSCOMMAND = 0x0112;
         private const int SC_SCREENSAVE = 0xF140;
         private const int SC_MONITORPOWER = 0xF170;
@@ -19,10 +20,10 @@ namespace BackgroundTaskRunnerV2
         // Core pause/resume states emitted by this manager
         public enum LockState
         {
-            Sleep,
             WindowsLock,
             ScreenSaver,
-            MonitorPower
+            MonitorPower,
+            Sleep
         }
 
         // Monitor power states received by the SC_MONITORPOWER event
@@ -39,6 +40,7 @@ namespace BackgroundTaskRunnerV2
         private EventHandler screenSaverIdleHandler;
         private SessionSwitchEventHandler sessionSwitchHandler;
         private PowerModeChangedEventHandler powerModeChangedHandler;
+        private Dictionary<int, Action<int>> syscommandHandlers;
 
         /**
          * Create a new SystemEventManager instance and its associated event handlers
@@ -48,6 +50,11 @@ namespace BackgroundTaskRunnerV2
             this.screenSaverIdleHandler = new EventHandler(ApplicationIdle_ScreenSaver);
             this.sessionSwitchHandler = new SessionSwitchEventHandler(SystemEvents_SessionSwitch);
             this.powerModeChangedHandler = new PowerModeChangedEventHandler(SystemEvents_PowerModeChanged);
+            this.syscommandHandlers = new Dictionary<int, Action<int>>()
+            {
+                { SC_SCREENSAVE, stateValue => HandleScreenSaverStart() },
+                { SC_MONITORPOWER, stateValue => HandleMonitorPowerStateChange(stateValue) }
+            };
         }
 
         /**
@@ -55,8 +62,8 @@ namespace BackgroundTaskRunnerV2
          */
         public void RegisterEventHandlers()
         {
-            SystemEvents.SessionSwitch += this.sessionSwitchHandler;
-            SystemEvents.PowerModeChanged += this.powerModeChangedHandler;
+            SystemEvents.SessionSwitch += sessionSwitchHandler;
+            SystemEvents.PowerModeChanged += powerModeChangedHandler;
         }
 
         /**
@@ -64,22 +71,79 @@ namespace BackgroundTaskRunnerV2
          */
         public void DeregisterEventHandlers()
         {
-            Application.Idle -= this.screenSaverIdleHandler;
-            SystemEvents.SessionSwitch -= this.sessionSwitchHandler;
-            SystemEvents.PowerModeChanged -= this.powerModeChangedHandler;
+            Application.Idle -= screenSaverIdleHandler;
+            SystemEvents.SessionSwitch -= sessionSwitchHandler;
+            SystemEvents.PowerModeChanged -= powerModeChangedHandler;
+        }
+
+        /**
+         * Get the action associated with the given event.
+         * Returns null if no such action exists.
+         */
+        public Action<int> GetWndProcHandler(int message, int stateType)
+        {
+            switch (message)
+            {
+                case WM_SYSCOMMAND:
+                    return syscommandHandlers.ContainsKey(stateType) ? syscommandHandlers[stateType] : null;
+                default:
+                    return null;
+            }
+        }
+
+        // ===============================================================
+        // Event wrappers to sanitize calls
+        // ===============================================================
+
+        // Emits the Pause event if there are listeners registered to it
+        private void OnPause(LockState state)
+        {
+            Pause?.Invoke(state);
+        }
+
+        // Emits the Resume event if there are listeners registered to it
+        private void OnResume(LockState state)
+        {
+            Resume?.Invoke(state);
         }
 
         // ===============================================================
         // Core Event Handlers
         // ===============================================================
-        
+
+        // Emits resume event when the screensaver application becomes idle
+        private void ApplicationIdle_ScreenSaver(object sender, EventArgs e)
+        {
+            Application.Idle -= screenSaverIdleHandler;
+            Resume(LockState.ScreenSaver);
+        }
+
+        // Begin pause/resume cycle when screen saver becomes active
+        private void HandleScreenSaverStart()
+        {
+            Pause(LockState.ScreenSaver);
+            // FIXME: need to find the "correct" way to detect screensaver stop
+            // Application.Idle += screenSaverIdleHandler;
+        }
+
+        // Emits pause/resume events when the computer's monitor power is toggling
+        private void HandleMonitorPowerStateChange(int state)
+        {
+            switch (state)
+            {
+                case (int)MonitorPowerState.PoweringOff: OnPause(LockState.MonitorPower); break;
+                case (int)MonitorPowerState.PoweringOn: OnResume(LockState.MonitorPower); break;
+                default: break;
+            }
+        }
+
         // Emits pause/resume events when the user locks/unlocks their computer with Cmd+L
         private void SystemEvents_SessionSwitch(object sender, SessionSwitchEventArgs e)
         {
             switch (e.Reason)
             {
-                case SessionSwitchReason.SessionLock: this.Pause(LockState.WindowsLock); break;
-                case SessionSwitchReason.SessionUnlock: this.Resume(LockState.WindowsLock); break;
+                case SessionSwitchReason.SessionLock: OnPause(LockState.WindowsLock); break;
+                case SessionSwitchReason.SessionUnlock: OnResume(LockState.WindowsLock); break;
                 default: break;
             }
         }
@@ -89,55 +153,9 @@ namespace BackgroundTaskRunnerV2
         {
             switch (e.Mode)
             {
-                case PowerModes.Suspend: this.Pause(LockState.Sleep); break;
-                case PowerModes.Resume: this.Resume(LockState.Sleep); break;
+                case PowerModes.Suspend: OnPause(LockState.Sleep); break;
+                case PowerModes.Resume: OnResume(LockState.Sleep); break;
                 default: break;
-            }
-        }
-
-        // Emits pause/resume events when the computer's monitor power is toggling
-        private void HandleMonitorPowerStateChange(int state)
-        {
-            switch (state)
-            {
-                case (int)MonitorPowerState.PoweringOff: this.Pause(LockState.MonitorPower); break;
-                case (int)MonitorPowerState.PoweringOn: this.Resume(LockState.MonitorPower); break;
-                default: break;
-            }
-        }
-
-        // Emits resume event when the screensaver application becomes idle
-        private void ApplicationIdle_ScreenSaver(object sender, EventArgs e)
-        {
-            Application.Idle -= this.screenSaverIdleHandler;
-            this.Resume(LockState.ScreenSaver);
-        }
-
-        // ===============================================================
-        // WndProc() Receiver
-        // ===============================================================
-
-        // Emits pause event when screensaver application starts, and registers the screensaver idle listener
-        public void HandleWndProc(ref Message m)
-        {
-            if(m.Msg != WM_SYSCOMMAND)
-            {
-                return;
-            }
-
-            int state = m.WParam.ToInt32();
-
-            switch (state)
-            {
-                case SC_SCREENSAVE:
-                    this.Pause(LockState.ScreenSaver);
-                    Application.Idle += this.screenSaverIdleHandler;
-                    break;
-                case SC_MONITORPOWER:
-                    HandleMonitorPowerStateChange(state);
-                    break;
-                default:
-                    break;
             }
         }
     }

@@ -48,6 +48,7 @@
             // 
             this.lbEventLogs.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
             this.lbEventLogs.FormattingEnabled = true;
+            this.lbEventLogs.HorizontalScrollbar = true;
             this.lbEventLogs.Location = new System.Drawing.Point(20, 322);
             this.lbEventLogs.Name = "lbEventLogs";
             this.lbEventLogs.Size = new System.Drawing.Size(457, 173);

@@ -14,32 +14,27 @@ namespace BackgroundTaskRunnerV2
     public class ProcessManager
     {
         // States emitted in OnProcessStateChange
-        public enum ProcessStateChange
+        public enum ProcessState
         {
             Start,
             End
         }
 
-        // States emitted in OnProcessStartError
-        public enum ProcessStartError
+        // States emitted on error manipulating the process state
+        public enum ProcessError
         {
             Create,
             Extension,
             FilePath,
-            Active
-        }
-
-        // States emitted in OnProcessStopError
-        public enum ProcessStopError
-        {
+            Active,
             Inactive,
             Destroy
         }
 
         // Core events which emit real-time info about the current process
-        public event Action<ProcessStateChange> OnProcessStateChange;
-        public event Action<ProcessStopError, Exception> OnProcessStopError;
-        public event Action<ProcessStartError, Exception> OnProcessStartError;
+        public event Action<ProcessState> ProcessStateChange;
+        public event Action<ProcessError, Exception> ProcessStopError;
+        public event Action<ProcessError, Exception> ProcessStartError;
         
         private Process process;
         private ProcessStartInfo processStartInfo;
@@ -75,7 +70,7 @@ namespace BackgroundTaskRunnerV2
                 return false;
             }
 
-            return this.acceptedExtensions.Contains(path.Substring(extensionIndex));
+            return acceptedExtensions.Contains(path.Substring(extensionIndex));
         }
 
         /**
@@ -86,28 +81,28 @@ namespace BackgroundTaskRunnerV2
         {
 
             // Don't start a process if we already have one active
-            if (this.IsProcessAvailable)
+            if (IsProcessAvailable)
             {
-                this.OnProcessStartError(ProcessStartError.Active, null);
+                OnProcessStartError(ProcessError.Active, null);
                 return;
             }
 
             // Don't start the process if the given path is not an accepted file type
             if (!this.AcceptsPathExtension(path))
             {
-                this.OnProcessStartError(ProcessStartError.Extension, null);
+                OnProcessStartError(ProcessError.Extension, null);
                 return;
             }
 
             // Don't start the process if the file doesn't exist
             if(!File.Exists(path))
             {
-                this.OnProcessStartError(ProcessStartError.FilePath, null);
+                OnProcessStartError(ProcessError.FilePath, null);
                 return;
             }
 
             // Attempt to create the process
-            this.CreateProcess(path);
+            CreateProcess(path);
         }
 
         /**
@@ -118,14 +113,36 @@ namespace BackgroundTaskRunnerV2
         {
 
             // Don't do anything if no process is active
-            if (!this.IsProcessAvailable)
+            if (!IsProcessAvailable)
             {
-                this.OnProcessStopError(ProcessStopError.Inactive, null);
+                OnProcessStopError(ProcessError.Inactive, null);
                 return;
             }
 
             // Attempt to kill and remove the current process
-            this.DestroyProcess();
+            DestroyProcess();
+        }
+
+        // ===============================================================
+        // Event wrappers to sanitize calls
+        // ===============================================================
+
+        // Emits the ProcessStateChange event if there are listeners registered to it
+        private void OnProcessStateChange(ProcessState state)
+        {
+            ProcessStateChange?.Invoke(state);
+        }
+
+        // Emits the ProcessStartError event if there are listeners registered to it
+        private void OnProcessStartError(ProcessError error, Exception exception)
+        {
+            ProcessStartError?.Invoke(error, exception);
+        }
+
+        // Emits the ProcessStopError event if there are listeners registered to it
+        private void OnProcessStopError(ProcessError error, Exception exception)
+        {
+            ProcessStopError?.Invoke(error, exception);
         }
 
         // ==================================================================
@@ -135,9 +152,9 @@ namespace BackgroundTaskRunnerV2
         // Callback for the Process.Exited event
         private void OnProcessEnd(object sender, EventArgs e)
         {
-            if (this.IsProcessAvailable)
+            if (IsProcessAvailable)
             {
-                this.OnProcessStateChange(ProcessStateChange.End);
+                OnProcessStateChange(ProcessState.End);
             }
         }
 
@@ -156,11 +173,11 @@ namespace BackgroundTaskRunnerV2
                 process.Exited += OnProcessEnd;
 
                 // Emit process start state change
-                this.OnProcessStateChange(ProcessStateChange.Start);
+                OnProcessStateChange(ProcessState.Start);
             }
             catch (Exception ex)
             {
-                this.OnProcessStartError(ProcessStartError.Create, ex);
+                OnProcessStartError(ProcessError.Create, ex);
             }
         }
 
@@ -175,10 +192,10 @@ namespace BackgroundTaskRunnerV2
             }
             catch (Exception ex)
             {
-                this.OnProcessStopError(ProcessStopError.Destroy, ex);
+                OnProcessStopError(ProcessError.Destroy, ex);
             }
 
-            this.process = null;
+            process = null;
         }
     }
 }

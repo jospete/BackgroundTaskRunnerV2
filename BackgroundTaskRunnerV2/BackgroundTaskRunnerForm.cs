@@ -4,9 +4,8 @@ using System.Diagnostics;
 using System.Windows.Forms;
 
 using LockState = BackgroundTaskRunnerV2.SystemEventManager.LockState;
-using ProcessStateChange = BackgroundTaskRunnerV2.ProcessManager.ProcessStateChange;
-using ProcessStartError = BackgroundTaskRunnerV2.ProcessManager.ProcessStartError;
-using ProcessStopError = BackgroundTaskRunnerV2.ProcessManager.ProcessStopError;
+using ProcessState = BackgroundTaskRunnerV2.ProcessManager.ProcessState;
+using ProcessError = BackgroundTaskRunnerV2.ProcessManager.ProcessError;
 
 namespace BackgroundTaskRunnerV2
 {
@@ -17,7 +16,7 @@ namespace BackgroundTaskRunnerV2
     public partial class BackgroundTaskRunnerForm : Form
     {
 
-        const string NO_CONDITIONS = "None";
+        private const string NO_CONDITIONS = "None";
 
         private ProcessManager processManager;
         private SystemEventManager systemEventsManager;
@@ -45,9 +44,10 @@ namespace BackgroundTaskRunnerV2
 
             LogEvent("Start Up");
 
-            processManager.OnProcessStateChange += HandleProcessStateChange;
-            processManager.OnProcessStartError += HandleProcessStartError;
-            processManager.OnProcessStopError += HandleProcessStopError;
+            processManager.ProcessStateChange += HandleProcessStateChange;
+            processManager.ProcessStartError += HandleProcessStartError;
+            processManager.ProcessStopError += HandleProcessStopError;
+
             systemEventsManager.Pause += HandlePauseEvent;
             systemEventsManager.Resume += HandleResumeEvent;
 
@@ -70,9 +70,10 @@ namespace BackgroundTaskRunnerV2
             processManager.RemoveCurrentProcess();
             systemEventsManager.DeregisterEventHandlers();
 
-            processManager.OnProcessStateChange -= HandleProcessStateChange;
-            processManager.OnProcessStartError -= HandleProcessStartError;
-            processManager.OnProcessStopError -= HandleProcessStopError;
+            processManager.ProcessStateChange -= HandleProcessStateChange;
+            processManager.ProcessStartError -= HandleProcessStartError;
+            processManager.ProcessStopError -= HandleProcessStopError;
+
             systemEventsManager.Pause -= HandlePauseEvent;
             systemEventsManager.Resume -= HandleResumeEvent;
         }
@@ -81,13 +82,6 @@ namespace BackgroundTaskRunnerV2
         private void StartWithCurrentPath()
         {
             this.processManager.Start(tbFilePath.Text);
-        }
-
-        // Passthrough for Windows Form events
-        protected override void WndProc(ref Message m)
-        {
-            base.WndProc(ref m);
-            systemEventsManager.HandleWndProc(ref m);
         }
         
         // Apply all settings from stored preferences
@@ -131,6 +125,23 @@ namespace BackgroundTaskRunnerV2
             }
         }
 
+        // Windows system events interceptor
+        protected override void WndProc(ref Message m)
+        {
+
+            int stateType = m.WParam.ToInt32() & 0xFFF0;
+            int stateValue = m.LParam.ToInt32();
+            Action<int> action = systemEventsManager.GetWndProcHandler(m.Msg, stateType);
+
+            if(action != null)
+            {
+                LogEvent("WndProc system event - type = " + stateType.ToString("X") + ", value = " + stateValue.ToString("X"));
+                action.Invoke(stateValue);
+            }
+            
+            base.WndProc(ref m);
+        }
+
         // ================================================================
         // Event Logging
         // ================================================================
@@ -158,24 +169,28 @@ namespace BackgroundTaskRunnerV2
         {
 
             string value = DateTime.Now.ToLocalTime() + ":      " + text;
+            Console.WriteLine(value);
             lbEventLogs.Items.Add(value);
 
-            int visibleItems = lbEventLogs.ClientSize.Height / lbEventLogs.ItemHeight;
-            lbEventLogs.TopIndex = Math.Max(lbEventLogs.Items.Count - visibleItems + 1, 0);
+            if (lbEventLogs.ItemHeight > 0)
+            {
+                int visibleItems = lbEventLogs.ClientSize.Height / lbEventLogs.ItemHeight;
+                lbEventLogs.TopIndex = Math.Max(lbEventLogs.Items.Count - visibleItems + 1, 0);
+            }
         }
 
         // ================================================================
         // Process and System Event Handlers
         // ================================================================
-        
+
         // Logs process start failure info
-        private void HandleProcessStartError(ProcessStartError error, Exception exception)
+        private void HandleProcessStartError(ProcessError error, Exception exception)
         {
             LogErrorEventAsync("Process start - " + error.ToString(), exception);
         }
 
         // Logs process stop failure info
-        private void HandleProcessStopError(ProcessStopError error, Exception exception)
+        private void HandleProcessStopError(ProcessError error, Exception exception)
         {
             LogErrorEventAsync("Process stop - " + error.ToString(), exception);
         }
@@ -209,10 +224,10 @@ namespace BackgroundTaskRunnerV2
         }
 
         // Logs state changes for the current process
-        private void HandleProcessStateChange(ProcessStateChange state)
+        private void HandleProcessStateChange(ProcessState state)
         {
             LogEventAsync("Process state change - " + state.ToString());
-            if(state == ProcessStateChange.End)
+            if(state == ProcessState.End)
             {
                 this.Invoke(new Action(this.processManager.RemoveCurrentProcess));
             }
