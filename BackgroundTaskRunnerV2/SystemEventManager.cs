@@ -127,6 +127,7 @@ namespace BackgroundTaskRunnerV2
         }
 
         // Emits pause/resume events when the computer's monitor power is toggling
+        // FIXME: 'PoweringOn' state never triggers
         private void HandleMonitorPowerStateChange(int state)
         {
             switch (state)
