@@ -61,7 +61,7 @@ namespace BackgroundTaskRunnerV2.Properties {
         
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("Sleep, WindowsLock, ScreenSaver")]
+        [global::System.Configuration.DefaultSettingValueAttribute("Sleep, WindowsLock, ScreenSaver, MonitorPower")]
         public string Conditions {
             get {
                 return ((string)(this["Conditions"]));
