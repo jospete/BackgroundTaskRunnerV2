@@ -12,11 +12,6 @@ namespace BackgroundTaskRunnerV2
     public class SystemEventManager
     {
 
-        // Used to identify WndProc system events
-        private const int WM_SYSCOMMAND = 0x0112;
-        private const int SC_SCREENSAVE = 0xF140;
-        private const int SC_MONITORPOWER = 0xF170;
-
         // Core pause/resume states emitted by this manager
         public enum LockState
         {
@@ -34,13 +29,32 @@ namespace BackgroundTaskRunnerV2
             PoweringOff = 2
         }
 
-        public event Action<LockState> Pause;
-        public event Action<LockState> Resume;
+        // ================================================================
+        // Internal Stuff
+        // ================================================================
+
+        // Used to identify WndProc system events
+        private const int WM_SYSCOMMAND = 0x0112;
+        private const int SC_SCREENSAVE = 0xF140;
+        private const int SC_MONITORPOWER = 0xF170;
 
         private EventHandler screenSaverIdleHandler;
         private SessionSwitchEventHandler sessionSwitchHandler;
         private PowerModeChangedEventHandler powerModeChangedHandler;
         private Dictionary<int, Action<int>> syscommandHandlers;
+
+        // Helper for safely extracting an action type from the given dictionary
+        private static Action<int> GetMapAction(Dictionary<int, Action<int>> dictionary, int stateType)
+        {
+            return dictionary.ContainsKey(stateType) ? dictionary[stateType] : null;
+        }
+
+        // ================================================================
+        // Public API
+        // ================================================================
+
+        public event Action<LockState> Pause;
+        public event Action<LockState> Resume;
 
         /**
          * Create a new SystemEventManager instance and its associated event handlers
@@ -87,12 +101,6 @@ namespace BackgroundTaskRunnerV2
                 case WM_SYSCOMMAND: return GetMapAction(syscommandHandlers, stateType);
                 default: return null;
             }
-        }
-
-        // Helper for safely extracting an action type from the given dictionary
-        private static Action<int> GetMapAction(Dictionary<int, Action<int>> dictionary, int stateType)
-        {
-            return dictionary.ContainsKey(stateType) ? dictionary[stateType] : null;
         }
 
         // ===============================================================

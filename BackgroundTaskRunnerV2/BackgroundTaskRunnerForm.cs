@@ -11,13 +11,14 @@ namespace BackgroundTaskRunnerV2
 {
 
     /**
-     * Core Form model.
+     * Core Form model and UI handler
      */
     public partial class BackgroundTaskRunnerForm : Form
     {
-
+        // Default value for user event selections
         private const string NO_CONDITIONS = "None";
 
+        // Core models for process and system event management
         private ProcessManager processManager;
         private SystemEventManager systemEventsManager;
 
@@ -28,17 +29,15 @@ namespace BackgroundTaskRunnerV2
             return "[ERROR] " + text + exceptionText;
         }
 
-        // ================================================================
-        // Glue Stuff
-        // ================================================================
-
+        // Initialize core models
         public BackgroundTaskRunnerForm()
         {
-            InitializeComponent();
             processManager = new ProcessManager(".bat", ".exe");
             systemEventsManager = new SystemEventManager();
+            InitializeComponent();
         }
 
+        // Load user preferences and register static event handlers when form begins to load
         private void MainForm_Load(object sender, EventArgs e)
         {
 
@@ -61,6 +60,7 @@ namespace BackgroundTaskRunnerV2
             }
         }
 
+        // Remove static event handlers and save user preferences when form begins to close
         private void MainForm_FormClosing(object sender, FormClosingEventArgs e)
         {
 
@@ -81,7 +81,7 @@ namespace BackgroundTaskRunnerV2
         // Convenience for starting the process with the current path
         private void StartWithCurrentPath()
         {
-            this.processManager.Start(tbFilePath.Text);
+            processManager.Start(tbFilePath.Text);
         }
         
         // Apply all settings from stored preferences
@@ -149,19 +149,19 @@ namespace BackgroundTaskRunnerV2
         // Posts an error event log on the thread queue
         private void LogErrorEventAsync(string text, Exception exception)
         {
-            this.LogEventAsync(CreateErrorEventText(text, exception));
+            LogEventAsync(CreateErrorEventText(text, exception));
         }
         
         // Posts an event log on the thread queue
         private void LogEventAsync(string text)
         {
-            this.Invoke(new Action<string>(this.LogEvent), new object[] { text });
+            Invoke(new Action<string>(LogEvent), new object[] { text });
         }
 
         // Wraps a logged event with an error format
         private void LogErrorEvent(string text, Exception exception)
         {
-            this.LogEvent(CreateErrorEventText(text, exception));
+            LogEvent(CreateErrorEventText(text, exception));
         }
 
         // Core event logging that adds the event to the event logs list box
@@ -219,7 +219,7 @@ namespace BackgroundTaskRunnerV2
             if(cbStopOnResume.Checked && IsValidLockState(state))
             {
                 LogEventAsync("Resume event killing process...");
-                this.processManager.RemoveCurrentProcess();
+                processManager.RemoveCurrentProcess();
             }
         }
 
@@ -229,7 +229,7 @@ namespace BackgroundTaskRunnerV2
             LogEventAsync("Process state change - " + state.ToString());
             if(state == ProcessState.End)
             {
-                this.Invoke(new Action(this.processManager.RemoveCurrentProcess));
+                Invoke(new Action(processManager.RemoveCurrentProcess));
             }
         }
 
@@ -246,7 +246,7 @@ namespace BackgroundTaskRunnerV2
         // Stops the process directly
         private void BtnManualStop_Click(object sender, EventArgs e)
         {
-            this.processManager.RemoveCurrentProcess();
+            processManager.RemoveCurrentProcess();
         }
 
         // Opens the Github page for this project
