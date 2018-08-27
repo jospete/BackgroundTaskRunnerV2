@@ -66,9 +66,9 @@ namespace BackgroundTaskRunnerV2
 
             LogEvent("Closing...");
 
-            Properties.Settings.Default.Save();
-            processManager.RemoveCurrentProcess();
+            processManager.Stop();
             systemEventsManager.DeregisterEventHandlers();
+            Properties.Settings.Default.Save();
 
             processManager.ProcessStateChange -= HandleProcessStateChange;
             processManager.ProcessStartError -= HandleProcessStartError;
@@ -219,7 +219,7 @@ namespace BackgroundTaskRunnerV2
             if(cbStopOnResume.Checked && IsValidLockState(state))
             {
                 LogEventAsync("Resume event killing process...");
-                processManager.RemoveCurrentProcess();
+                processManager.Stop();
             }
         }
 
@@ -229,7 +229,7 @@ namespace BackgroundTaskRunnerV2
             LogEventAsync("Process state change - " + state.ToString());
             if(state == ProcessState.End)
             {
-                Invoke(new Action(processManager.RemoveCurrentProcess));
+                Invoke(new Action(processManager.Stop));
             }
         }
 
@@ -246,7 +246,7 @@ namespace BackgroundTaskRunnerV2
         // Stops the process directly
         private void BtnManualStop_Click(object sender, EventArgs e)
         {
-            processManager.RemoveCurrentProcess();
+            processManager.Stop();
         }
 
         // Opens the Github page for this project

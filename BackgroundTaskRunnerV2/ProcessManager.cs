@@ -40,15 +40,17 @@ namespace BackgroundTaskRunnerV2
         private ProcessStartInfo processStartInfo;
         private string[] acceptedExtensions;
 
+        // Create a new instance that restricts processes to files with 
+        // one of the given extensions
         public ProcessManager(params string[] extensions)
         {
-            this.acceptedExtensions = extensions;
+            acceptedExtensions = extensions;
         }
 
         /**
          * Returns true if a process has been creatd
          */
-        public bool IsProcessAvailable
+        public bool IsProcessDefined
         {
             get { return process != null;  }
         }
@@ -58,19 +60,27 @@ namespace BackgroundTaskRunnerV2
          */
         public bool AcceptsPathExtension(string path)
         {
-            if(path == null || path == string.Empty)
+            int idx = path != null ? path.LastIndexOf(".") : -1;
+            bool validIdx = idx >= 0 && idx < path.Length;
+            return validIdx && acceptedExtensions.Contains(path.Substring(idx));
+        }
+
+        /**
+         * Destroy the current process if one exists.
+         * Any errors encountered during the stop routine will be emitted in OnProcessStopError.
+         */
+        public void Stop()
+        {
+
+            // Don't do anything if no process is active
+            if (!IsProcessDefined)
             {
-                return false;
+                OnProcessStopError(ProcessError.Inactive, null);
+                return;
             }
 
-            int extensionIndex = path.LastIndexOf(".");
-
-            if(extensionIndex < 0 || extensionIndex >= path.Length)
-            {
-                return false;
-            }
-
-            return acceptedExtensions.Contains(path.Substring(extensionIndex));
+            // Attempt to kill and remove the current process
+            DestroyProcess();
         }
 
         /**
@@ -81,14 +91,14 @@ namespace BackgroundTaskRunnerV2
         {
 
             // Don't start a process if we already have one active
-            if (IsProcessAvailable)
+            if (IsProcessDefined)
             {
                 OnProcessStartError(ProcessError.Active, null);
                 return;
             }
 
             // Don't start the process if the given path is not an accepted file type
-            if (!this.AcceptsPathExtension(path))
+            if (!AcceptsPathExtension(path))
             {
                 OnProcessStartError(ProcessError.Extension, null);
                 return;
@@ -103,24 +113,6 @@ namespace BackgroundTaskRunnerV2
 
             // Attempt to create the process
             CreateProcess(path);
-        }
-
-        /**
-         * Destroy the current process if one exists.
-         * Any errors encountered during the stop routine will be emitted in OnProcessStopError.
-         */
-        public void RemoveCurrentProcess()
-        {
-
-            // Don't do anything if no process is active
-            if (!IsProcessAvailable)
-            {
-                OnProcessStopError(ProcessError.Inactive, null);
-                return;
-            }
-
-            // Attempt to kill and remove the current process
-            DestroyProcess();
         }
 
         // ===============================================================
@@ -152,10 +144,27 @@ namespace BackgroundTaskRunnerV2
         // Callback for the Process.Exited event
         private void OnProcessEnd(object sender, EventArgs e)
         {
-            if (IsProcessAvailable)
+            if (IsProcessDefined)
             {
                 OnProcessStateChange(ProcessState.End);
             }
+        }
+
+        // Destroy the current process and clear the reference
+        private void DestroyProcess()
+        {
+            try
+            {
+                // Allow time to settle if we're waking up from screen lock or screen saver
+                Thread.Sleep(500);
+                process.CloseMainWindow();
+            }
+            catch (Exception ex)
+            {
+                OnProcessStopError(ProcessError.Destroy, ex);
+            }
+
+            process = null;
         }
 
         // Create and maintain a process from the executable at the given path
@@ -179,23 +188,6 @@ namespace BackgroundTaskRunnerV2
             {
                 OnProcessStartError(ProcessError.Create, ex);
             }
-        }
-
-        // Destroy the current process and clear the reference
-        private void DestroyProcess()
-        {
-            try
-            {
-                // Allow time to settle if we're waking up from screen lock or screen saver
-                Thread.Sleep(500);
-                process.CloseMainWindow();
-            }
-            catch (Exception ex)
-            {
-                OnProcessStopError(ProcessError.Destroy, ex);
-            }
-
-            process = null;
         }
     }
 }
