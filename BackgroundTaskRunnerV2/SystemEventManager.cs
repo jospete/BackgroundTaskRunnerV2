@@ -47,10 +47,10 @@ namespace BackgroundTaskRunnerV2
          */
         public SystemEventManager()
         {
-            this.screenSaverIdleHandler = new EventHandler(ApplicationIdle_ScreenSaver);
-            this.sessionSwitchHandler = new SessionSwitchEventHandler(SystemEvents_SessionSwitch);
-            this.powerModeChangedHandler = new PowerModeChangedEventHandler(SystemEvents_PowerModeChanged);
-            this.syscommandHandlers = new Dictionary<int, Action<int>>()
+            screenSaverIdleHandler = new EventHandler(ApplicationIdle_ScreenSaver);
+            sessionSwitchHandler = new SessionSwitchEventHandler(SystemEvents_SessionSwitch);
+            powerModeChangedHandler = new PowerModeChangedEventHandler(SystemEvents_PowerModeChanged);
+            syscommandHandlers = new Dictionary<int, Action<int>>()
             {
                 { SC_SCREENSAVE, stateValue => HandleScreenSaverStart() },
                 { SC_MONITORPOWER, stateValue => HandleMonitorPowerStateChange(stateValue) }
@@ -84,11 +84,15 @@ namespace BackgroundTaskRunnerV2
         {
             switch (message)
             {
-                case WM_SYSCOMMAND:
-                    return syscommandHandlers.ContainsKey(stateType) ? syscommandHandlers[stateType] : null;
-                default:
-                    return null;
+                case WM_SYSCOMMAND: return GetMapAction(syscommandHandlers, stateType);
+                default: return null;
             }
+        }
+
+        // Helper for safely extracting an action type from the given dictionary
+        private static Action<int> GetMapAction(Dictionary<int, Action<int>> dictionary, int stateType)
+        {
+            return dictionary.ContainsKey(stateType) ? dictionary[stateType] : null;
         }
 
         // ===============================================================
@@ -115,13 +119,13 @@ namespace BackgroundTaskRunnerV2
         private void ApplicationIdle_ScreenSaver(object sender, EventArgs e)
         {
             Application.Idle -= screenSaverIdleHandler;
-            Resume(LockState.ScreenSaver);
+            OnResume(LockState.ScreenSaver);
         }
 
         // Begin pause/resume cycle when screen saver becomes active
         private void HandleScreenSaverStart()
         {
-            Pause(LockState.ScreenSaver);
+            OnPause(LockState.ScreenSaver);
             // FIXME: need to find the "correct" way to detect screensaver stop
             // Application.Idle += screenSaverIdleHandler;
         }
@@ -130,33 +134,30 @@ namespace BackgroundTaskRunnerV2
         // FIXME: 'PoweringOn' state never triggers
         private void HandleMonitorPowerStateChange(int state)
         {
-            switch (state)
-            {
-                case (int)MonitorPowerState.PoweringOff: OnPause(LockState.MonitorPower); break;
-                case (int)MonitorPowerState.PoweringOn: OnResume(LockState.MonitorPower); break;
-                default: break;
-            }
+            ConsumeLockChange(LockState.MonitorPower, MonitorPowerState.PoweringOff, MonitorPowerState.PoweringOn, (MonitorPowerState)state);
         }
 
         // Emits pause/resume events when the user locks/unlocks their computer with Cmd+L
         private void SystemEvents_SessionSwitch(object sender, SessionSwitchEventArgs e)
         {
-            switch (e.Reason)
-            {
-                case SessionSwitchReason.SessionLock: OnPause(LockState.WindowsLock); break;
-                case SessionSwitchReason.SessionUnlock: OnResume(LockState.WindowsLock); break;
-                default: break;
-            }
+            ConsumeLockChange(LockState.WindowsLock, SessionSwitchReason.SessionLock, SessionSwitchReason.SessionUnlock, e.Reason);
         }
 
         // Emits pause/resume events when the computer sleeps
         private void SystemEvents_PowerModeChanged(object sender, PowerModeChangedEventArgs e)
         {
-            switch (e.Mode)
+            ConsumeLockChange(LockState.Sleep, PowerModes.Suspend, PowerModes.Resume, e.Mode);
+        }
+
+        // Base lock state handler for all events
+        private void ConsumeLockChange<T>(LockState state, T pause, T resume, T value)
+        {
+            if(pause.Equals(value))
             {
-                case PowerModes.Suspend: OnPause(LockState.Sleep); break;
-                case PowerModes.Resume: OnResume(LockState.Sleep); break;
-                default: break;
+                OnPause(state);
+            } else if (resume.Equals(value))
+            {
+                OnResume(state);
             }
         }
     }
