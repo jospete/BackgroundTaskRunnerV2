@@ -18,6 +18,9 @@ namespace BackgroundTaskRunnerV2
         // Default value for user event selections
         private const string NO_CONDITIONS = "None";
 
+        // Max amount of logs available at a time
+        private const int MAX_LOG_ITEMS = 1000;
+
         // Core models for process and system event management
         private ProcessManager processManager;
         private SystemEventManager systemEventsManager;
@@ -169,8 +172,12 @@ namespace BackgroundTaskRunnerV2
         {
 
             string value = DateTime.Now.ToLocalTime() + ":      " + text;
-            Console.WriteLine(value);
             lbEventLogs.Items.Add(value);
+
+            if(lbEventLogs.Items.Count > MAX_LOG_ITEMS)
+            {
+                lbEventLogs.Items.RemoveAt(0);
+            }
 
             if (lbEventLogs.ItemHeight > 0)
             {
@@ -247,6 +254,12 @@ namespace BackgroundTaskRunnerV2
         private void BtnManualStop_Click(object sender, EventArgs e)
         {
             processManager.Stop();
+        }
+
+        // Clears the event log list
+        private void BtnClearLogs_Click(object sender, EventArgs e)
+        {
+            lbEventLogs.Items.Clear();
         }
 
         // Opens the Github page for this project

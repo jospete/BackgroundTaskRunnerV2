@@ -42,6 +42,7 @@
             this.btnManualStop = new System.Windows.Forms.Button();
             this.lblSource = new System.Windows.Forms.Label();
             this.linkSource = new System.Windows.Forms.LinkLabel();
+            this.btnClearLogs = new System.Windows.Forms.Button();
             this.SuspendLayout();
             // 
             // lbEventLogs
@@ -195,12 +196,25 @@
             this.linkSource.Text = "https://github.com/jospete/BackgroundTaskRunnerV2";
             this.linkSource.LinkClicked += new System.Windows.Forms.LinkLabelLinkClickedEventHandler(this.LinkSource_LinkClicked);
             // 
+            // btnClearLogs
+            // 
+            this.btnClearLogs.Font = new System.Drawing.Font("Microsoft Sans Serif", 9F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.btnClearLogs.ForeColor = System.Drawing.SystemColors.ControlDarkDark;
+            this.btnClearLogs.Location = new System.Drawing.Point(369, 276);
+            this.btnClearLogs.Name = "btnClearLogs";
+            this.btnClearLogs.Size = new System.Drawing.Size(108, 31);
+            this.btnClearLogs.TabIndex = 14;
+            this.btnClearLogs.Text = "Clear Logs";
+            this.btnClearLogs.UseVisualStyleBackColor = true;
+            this.btnClearLogs.Click += new System.EventHandler(this.BtnClearLogs_Click);
+            // 
             // BackgroundTaskRunnerForm
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.AutoScroll = true;
             this.ClientSize = new System.Drawing.Size(505, 532);
+            this.Controls.Add(this.btnClearLogs);
             this.Controls.Add(this.linkSource);
             this.Controls.Add(this.lblSource);
             this.Controls.Add(this.btnManualStop);
@@ -241,6 +255,7 @@
         private System.Windows.Forms.Button btnManualStop;
         private System.Windows.Forms.Label lblSource;
         private System.Windows.Forms.LinkLabel linkSource;
+        private System.Windows.Forms.Button btnClearLogs;
     }
 }
 
